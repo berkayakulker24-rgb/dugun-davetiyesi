@@ -189,6 +189,7 @@
             align-items: center;
             gap: 12px;
             width: 100%;
+            margin-bottom: 30px; /* LCV formu ile arayı açmak için eklendi */
         }
 
         /* Buton Etkileşimleri (Hover Efektleri) */
@@ -222,6 +223,33 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(92, 84, 77, 0.2);
         }
+
+        /* LCV FORMU STİLLERİ */
+        .lcv-section {
+            border-top: 1px dashed #D1C7BD;
+            padding-top: 30px;
+            text-align: center;
+            width: 100%;
+        }
+        .lcv-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin-bottom: 10px; }
+        .lcv-desc { font-size: 0.8rem; line-height: 1.5; margin-bottom: 20px; opacity: 0.8; padding: 0 10px; }
+        
+        .lcv-input {
+            width: 90%; padding: 14px; margin-bottom: 15px;
+            border: 1px solid #D1C7BD; border-radius: 8px;
+            background-color: #FAFAFA; font-family: 'Montserrat', sans-serif;
+            color: var(--line-color); font-size: 0.9rem; box-sizing: border-box;
+            outline: none; transition: border 0.3s;
+        }
+        .lcv-input:focus { border-color: var(--accent-color); }
+        
+        .radio-group {
+            display: flex; justify-content: center; gap: 15px;
+            margin-bottom: 20px; font-size: 0.85rem; font-weight: 600;
+        }
+        .radio-group label { cursor: pointer; display: flex; align-items: center; gap: 5px;}
+        
+        #lcvStatus { margin-top: 15px; font-size: 0.85rem; font-weight: 600; min-height: 20px;}
 
         /* Sayaç Nabız Efekti */
         #timer {
@@ -257,6 +285,7 @@
         .delay-3 { animation-delay: 0.6s; }
         .delay-4 { animation-delay: 0.8s; }
         .delay-5 { animation-delay: 1.0s; }
+        .delay-6 { animation-delay: 1.2s; } /* LCV bölümü gecikmesi */
 
     </style>
 </head>
@@ -299,10 +328,41 @@
             <div class="button-group animate-item delay-5">
                 <button onclick="addCalendar()" class="btn btn-calendar">📅 Takvime Ekle</button>
                 <a href="https://script.google.com/macros/s/AKfycbwo5dmX4CiSTuBI7iOjsS1iuTg_tX4igvjXC3n7mqNJ75SddNvoAimKNd7YXkhItbee/exec" target="_blank" class="btn btn-photo">📸 Fotoğraf & Video Yükle</a>
-
             </div>
 
-            <div id="timer" class="animate-item delay-5">
+            <div class="lcv-section animate-item delay-6">
+                <div class="lcv-title">Lütfen Cevap Veriniz</div>
+                <div class="lcv-desc">Düğünümüzde sizi de aramızda görmekten mutluluk duyarız. Lütfen katılım durumunuzu bildiriniz.</div>
+                
+                <form id="lcvForm">
+                    <input type="text" name="adSoyad" class="lcv-input" placeholder="Adınız ve Soyadınız" required>
+                    
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="durum" value="Katılıyorum" onchange="toggleGuest(true)" required> Katılıyorum
+                        </label>
+                        <label>
+                            <input type="radio" name="durum" value="Katılamıyorum" onchange="toggleGuest(false)"> Katılamıyorum
+                        </label>
+                    </div>
+
+                    <div id="guestSelect" style="display: none;">
+                        <select name="kisiSayisi" id="kisiSayisiInput" class="lcv-input">
+                            <option value="" disabled selected>Kaç kişi katılacaksınız?</option>
+                            <option value="1">1 Kişi (Sadece Ben)</option>
+                            <option value="2">2 Kişi</option>
+                            <option value="3">3 Kişi</option>
+                            <option value="4">4 Kişi</option>
+                            <option value="5">5 Kişi</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-calendar" id="lcvSubmitBtn">Gönder</button>
+                </form>
+                <div id="lcvStatus"></div>
+            </div>
+
+            <div id="timer" class="animate-item delay-6">
                 <div><span id="d">00</span> GÜN</div>
                 <div><span id="h">00</span> SAAT</div>
                 <div><span id="m">00</span> DK</div>
@@ -340,6 +400,50 @@
             document.getElementById("m").innerText = minutes;
             
         }, 1000);
+
+        // LCV Form Kontrol Kodu
+        function toggleGuest(isAttending) {
+            const guestSelect = document.getElementById('guestSelect');
+            const kisiInput = document.getElementById('kisiSayisiInput');
+            if(isAttending) {
+                guestSelect.style.display = 'block';
+                kisiInput.setAttribute('required', 'required');
+            } else {
+                guestSelect.style.display = 'none';
+                kisiInput.removeAttribute('required');
+                kisiInput.value = ""; 
+            }
+        }
+
+        // LCV Form Gönderme Kodu (Google Sheets'e)
+        document.getElementById('lcvForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('lcvSubmitBtn');
+            const statusDiv = document.getElementById('lcvStatus');
+            btn.innerText = 'Gönderiliyor...';
+            btn.disabled = true;
+
+            // DİKKAT: Yeni aldığın Apps Script (Excel) URL'sini aşağıdaki tırnakların içine yapıştır!
+            const scriptURL = 'https://script.google.com/macros/s/AKfycbyGHYIz61lwXJhWz71IwfQwkowQwng7DRMLaeC3jCUZw8ublvIjzz4jtix-S3Jvifs/exec'; 
+            
+            const formData = new FormData(this);
+
+            fetch(scriptURL, { method: 'POST', body: formData })
+                .then(response => {
+                    statusDiv.innerText = 'Yanıtınız başarıyla iletildi. Teşekkür ederiz!';
+                    statusDiv.style.color = 'var(--accent-color)';
+                    btn.innerText = 'Gönderildi';
+                    document.getElementById('lcvForm').reset();
+                    document.getElementById('guestSelect').style.display = 'none';
+                })
+                .catch(error => {
+                    statusDiv.innerText = 'Bir hata oluştu. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+                    statusDiv.style.color = '#d32f2f';
+                    btn.innerText = 'Tekrar Dene';
+                    btn.disabled = false;
+                });
+        });
     </script>
 </body>
 </html>
